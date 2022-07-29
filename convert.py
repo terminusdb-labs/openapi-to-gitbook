@@ -2,26 +2,44 @@ import sys
 import yaml
 
 def main():
-    if len(sys.argv) < 2:
-        print("Please provide a filename as the first argument")
+    if len(sys.argv) < 3:
+        print("Please provide a filename and version as arguments")
         sys.exit(1)
     filename = sys.argv[1]
-    process_yaml(filename)
+    version = sys.argv[2]
+    process_yaml(filename, version)
 
-def process_yaml(yaml_file):
+def process_yaml(yaml_file, version):
+    tags = {}
     with open(yaml_file, 'r') as f:
         data = yaml.safe_load(f)
         for path, methods in data['paths'].items():
-            print_entry(path, methods)
+            for method, method_object in methods.items():
+                if method not in ['get', 'post', 'delete', 'put', 'head']:
+                    continue
+                generated_entry = generate_gitbook(path, method, version)
+                tag = method_object['tags'][0]
+                if tag not in tags:
+                    tags[tag] = [generated_entry]
+                else:
+                    tags[tag].append(generated_entry)
+    print_all(tags)
 
-def print_entry(path, methods):
-    for method in methods:
-        print(f'''
-{{% swagger src=".gitbook/assets/terminusdb.yaml" path="{path}" method="{method}" %}}
-[terminusdb.yaml](.gitbook/assets/terminusdb.yaml)
+def generate_gitbook(path, method, version):
+    url = f'https://raw.githubusercontent.com/terminusdb/terminusdb/{version}/docs/openapi.yaml'
+    return f'''
+{{% swagger src="{url}" path="{path}" method="{method}" %}}
+[{url}]({url})
 {{% endswagger %}}
 
-''')
+'''
+
+
+def print_all(tags):
+    for tag, values in tags.items():
+        print(f"## {tag}")
+        for entry in values:
+            print(entry)
 
 if __name__ == '__main__':
     main()
